@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pg_bg">#0B1220</color>
+    <color name="pg_icon_bg">#0F1B33</color>
+    <style name="ProGarajeTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/pg_bg</item>
+        <item name="android:statusBarColor">@color/pg_bg</item>
+        <item name="android:navigationBarColor">@color/pg_bg</item>
+    </style>
+</resources>

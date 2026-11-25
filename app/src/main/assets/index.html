@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Pro Garaje</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <nav id="nav">
+    <div class="brand"><span class="logo">🚗</span><span class="bname">Pro <b>Garaje</b></span></div>
+    <button data-tab="inicio" class="on"><i>🏠</i><span>Inicio</span></button>
+    <button data-tab="mant"><i>🔧</i><span>Taller</span></button>
+    <button data-tab="fuel"><i>⛽</i><span>Repostajes</span></button>
+    <button data-tab="gastos"><i>📊</i><span>Gastos</span></button>
+    <button data-tab="ajustes"><i>⚙️</i><span>Ajustes</span></button>
+  </nav>
+
+  <main id="main">
+    <header id="top">
+      <div>
+        <h1 id="ttl">Inicio</h1>
+        <div id="sub" class="muted"></div>
+      </div>
+      <div id="clock"></div>
+    </header>
+    <section id="v-inicio" class="view on"></section>
+    <section id="v-mant" class="view"></section>
+    <section id="v-fuel" class="view"></section>
+    <section id="v-gastos" class="view"></section>
+    <section id="v-ajustes" class="view"></section>
+  </main>
+</div>
+
+<div id="modal" class="hide"><div class="sheet" id="sheet"></div></div>
+<div id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
