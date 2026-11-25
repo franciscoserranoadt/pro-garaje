@@ -18,7 +18,7 @@ object Updater {
     class Info(val code: Int, val name: String, val notes: String)
 
     fun installedCode(c: Context): Int = try {
-        c.packageManager.getPackageInfo(c.packageName, 0).longVersionCode.toInt()
+        androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(c.packageManager.getPackageInfo(c.packageName, 0)).toInt()
     } catch (_: Exception) {
         0
     }
@@ -69,7 +69,7 @@ object Updater {
                 if (con.responseCode != 200) return "No se pudo descargar (error ${con.responseCode})"
                 val installer = a.packageManager.packageInstaller
                 val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
-                params.setAppPackageName(a.packageName)
+                if (Build.VERSION.SDK_INT >= 26) params.setAppPackageName(a.packageName)
                 val id = installer.createSession(params)
                 installer.openSession(id).use { session ->
                     con.inputStream.use { input ->

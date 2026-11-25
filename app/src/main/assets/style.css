@@ -101,7 +101,7 @@ header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.3px;
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 
 /* ---------- Formularios ---------- */
-#modal { position: fixed; inset: 0; background: rgba(3, 7, 16, .72); display: flex; align-items: flex-end; justify-content: center; z-index: 50; animation: fade .15s; }
+#modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(3, 7, 16, .72); display: flex; align-items: flex-end; justify-content: center; z-index: 50; animation: fade .15s; }
 .sheet { background: #111A2C; width: 100%; max-width: 620px; max-height: 92%; overflow-y: auto; border-radius: 24px 24px 0 0; padding: 18px 16px 22px; border-top: 1px solid var(--line); }
 .sheet h2 { margin: 0 0 14px; font-size: 19px; display: flex; align-items: center; gap: 10px; }
 .sheet .x { margin-left: auto; background: var(--panel2); border: 0; width: 34px; height: 34px; border-radius: 50%; font-size: 16px; }

@@ -1,5 +1,1 @@
-Primera versión de Pro Garaje:
-- Avisos de ITV, seguro, aceite y neumáticos (y los que añadas).
-- Registro de repostajes con consumo real (L/100 km).
-- Gasto al mes en combustible y taller, con gráficas.
-- Copia de seguridad en Descargas.
+Ahora se instala también en pantallas de coche con Android antiguo (desde Android 6), como la Junsun.

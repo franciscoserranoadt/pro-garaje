@@ -77,6 +77,7 @@ object Reminders {
     }
 
     private fun ensureChannel(c: Context) {
+        if (Build.VERSION.SDK_INT < 26) return
         val nm = c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (nm.getNotificationChannel(CHANNEL) == null) {
             val ch = NotificationChannel(CHANNEL, "Avisos del coche", NotificationManager.IMPORTANCE_HIGH)
