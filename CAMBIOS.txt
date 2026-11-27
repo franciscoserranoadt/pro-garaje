@@ -1,1 +1,4 @@
-Ahora se instala también en pantallas de coche con Android antiguo (desde Android 6), como la Junsun.
+Nuevo: móvil y coche sincronizados con el «Código Pro» (Ajustes → Móvil y coche). El coche, los avisos del taller, los repostajes y los gastos son iguales en los dos aparatos.
+Si apuntas un repostaje en el móvil y otro en el coche, se juntan: no se pierde ninguno. Si ya tenías datos en los dos, también se juntan (los repostajes repetidos se quedan una sola vez).
+Si usas Pro OBD en el coche, Pro Garaje coge de ahí los kilómetros reales.
+Los datos viajan cifrados: solo tus aparatos pueden leerlos.

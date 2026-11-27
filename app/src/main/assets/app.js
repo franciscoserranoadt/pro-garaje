@@ -56,12 +56,119 @@
     D.items = D.items || base.items;
     D.services = D.services || [];
     D.fuel = D.fuel || [];
+    D.meta = D.meta || {};
+    D.meta.carU = D.meta.carU || 0; D.meta.setU = D.meta.setU || 0; D.meta.del = D.meta.del || {};
+    prev = foto();
   }
-  function guardar() {
+  /** sinSync = true cuando los datos vienen del otro aparato (no hay que volver a sellarlos) */
+  function guardar(sinSync) {
+    var cal = calibrarObd();
+    var cambio = sinSync ? cal : sellar();
     var txt = JSON.stringify(D);
     try { if (A) A.save(txt); } catch (e) {}
     try { localStorage.setItem('progaraje', txt); } catch (e) {}
+    prev = foto();
+    if (cambio && window.PS) PS.changed('garaje');
     enviarAvisos();
+  }
+
+  /* ---------- Sincronización móvil ⇄ coche (Código Pro, ver prosync.js) ----------
+     Cada apunte lleva la hora en que se cambió (u) y los borrados se recuerdan en meta.del,
+     así al juntar los dos aparatos no se pierde ningún repostaje. */
+  var LISTAS = ['items', 'services', 'fuel'];
+  var prev = null;
+  function huella(r) { var c = {}; Object.keys(r).sort().forEach(function (k) { if (k !== 'u') c[k] = r[k]; }); return JSON.stringify(c); }
+  function foto() {
+    var f = { car: JSON.stringify(D.car), set: JSON.stringify(D.set), obd: JSON.stringify(D.obdRef || null) };
+    LISTAS.forEach(function (l) { var m = {}; D[l].forEach(function (r) { m[r.id] = huella(r); }); f[l] = m; });
+    return f;
+  }
+  function sellar() {
+    if (!prev) return false;
+    var t = Date.now(), cambio = false;
+    if (JSON.stringify(D.car) !== prev.car) { D.meta.carU = t; cambio = true; }
+    if (JSON.stringify(D.set) !== prev.set) { D.meta.setU = t; cambio = true; }
+    if (JSON.stringify(D.obdRef || null) !== prev.obd) cambio = true;
+    LISTAS.forEach(function (l) {
+      var hay = {};
+      D[l].forEach(function (r) { hay[r.id] = 1; if (prev[l][r.id] !== huella(r)) { r.u = t; cambio = true; } });
+      Object.keys(prev[l]).forEach(function (id) { if (!hay[id]) { D.meta.del[id] = t; cambio = true; } });
+    });
+    return cambio;
+  }
+  function canon(x) { return window.PS ? PS.canon(x) : JSON.stringify(x); }
+  /** Elige entre dos versiones: la más nueva; si empatan, siempre la misma en los dos aparatos */
+  function elegir(a, ta, b, tb) { if ((ta || 0) !== (tb || 0)) return (ta || 0) > (tb || 0) ? a : b; return canon(a) >= canon(b) ? a : b; }
+  function mezclar(L, R) {
+    var M = { v: 1, meta: { del: {} } };
+    L.meta = L.meta || {}; R.meta = R.meta || {};
+    M.car = elegir(L.car, L.meta.carU, R.car, R.meta.carU); M.meta.carU = Math.max(L.meta.carU || 0, R.meta.carU || 0);
+    M.set = elegir(L.set, L.meta.setU, R.set, R.meta.setU); M.meta.setU = Math.max(L.meta.setU || 0, R.meta.setU || 0);
+    [L.meta.del || {}, R.meta.del || {}].forEach(function (d) { Object.keys(d).forEach(function (id) { M.meta.del[id] = Math.max(M.meta.del[id] || 0, d[id]); }); });
+    var la = L.obdRef, rb = R.obdRef;
+    M.obdRef = !la ? (rb || null) : !rb ? la : elegir(la, la.t, rb, rb.t);
+    LISTAS.forEach(function (l) {
+      var m = {};
+      (L[l] || []).concat(R[l] || []).forEach(function (r) { var o = m[r.id]; m[r.id] = o ? elegir(o, o.u, r, r.u) : r; });
+      var out = Object.keys(m).map(function (id) { return m[id]; })
+        .filter(function (r) { var d = M.meta.del[r.id]; return !(d && d >= (r.u || 0)); })
+        .sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
+      // el mismo repostaje apuntado en los dos aparatos antes de vincularlos: se queda uno
+      if (l !== 'items') {
+        var visto = {};
+        out = out.filter(function (r) {
+          var k = l === 'fuel' ? r.date + '|' + r.km + '|' + r.total : r.date + '|' + r.itemId + '|' + r.km + '|' + r.cost;
+          if (visto[k]) return false; visto[k] = 1; return true;
+        });
+      }
+      M[l] = out;
+    });
+    if (!M.obdRef) delete M.obdRef;
+    return M;
+  }
+  function tieneDatos(d) { return !!(d && ((d.fuel || []).length || (d.services || []).length || (d.car && (d.car.plate || d.car.km)) || (d.meta && d.meta.carU))); }
+  if (window.PS) {
+    PS.register('garaje', {
+      get: function () { return D; },
+      merge: mezclar,
+      hasData: tieneDatos,
+      apply: function (m) {
+        var antes = (D.fuel || []).length + (D.services || []).length;
+        D = m;
+        var base = nuevo();
+        D.car = Object.assign(base.car, D.car || {}); D.set = Object.assign(base.set, D.set || {});
+        D.items = D.items || base.items; D.services = D.services || []; D.fuel = D.fuel || [];
+        guardar(true); pintar();
+        var ahora = D.fuel.length + D.services.length;
+        toast(ahora > antes ? '📲 ' + plural(ahora - antes, 'apunte nuevo', 'apuntes nuevos') + ' desde el otro aparato' : '📲 Datos actualizados desde el otro aparato');
+      }
+    });
+    // Kilómetros que mide Pro OBD en el coche
+    PS.watch('obd', function (d) {
+      if (!d || !d.odo || !(d.odo.km >= 0)) return;
+      obdFeed = { km: +d.odo.km, t: d.odo.t || Date.now() };
+      try { localStorage.setItem('progaraje.obd', JSON.stringify(obdFeed)); } catch (e) {}
+      if (!D.obdRef) { D.obdRef = { km: kmHoy(), odo: obdFeed.km, t: Date.now() }; guardar(); }
+      pintar();
+    });
+  }
+
+  /* ---------- Kilómetros desde Pro OBD ----------
+     Pro OBD cuenta los km que recorre el coche. Se apunta cuántos llevaba cuando pusiste
+     unos km de verdad (obdRef) y desde ahí se suman. Al poner km nuevos se vuelve a ajustar. */
+  var obdFeed = null;
+  try { obdFeed = JSON.parse(localStorage.getItem('progaraje.obd') || 'null'); } catch (e) {}
+  function kmObd() {
+    if (!obdFeed || !D.obdRef) return 0;
+    var k = D.obdRef.km + (obdFeed.km - D.obdRef.odo);
+    return k > 0 ? k : 0;
+  }
+  function calibrarObd() {
+    if (!obdFeed || Date.now() - obdFeed.t > 12 * 3600e3) return;
+    var u = ultimaLectura(); if (!u || u.d !== hoyISO()) return;
+    if (D.obdRef && D.obdRef.km === u.km) return;
+    D.obdRef = { km: u.km, odo: obdFeed.km, t: Date.now() };
+    return true;
   }
 
   /* ---------- Utilidades ---------- */
@@ -117,7 +224,9 @@
   }
   function ultimaLectura() { var l = lecturas(); return l.length ? l[l.length - 1] : null; }
   function kmHoy() {
-    var u = ultimaLectura(); if (!u) return 0;
+    var u = ultimaLectura(), ko = kmObd();
+    if (ko && (!u || ko >= u.km)) return Math.round(ko);
+    if (!u) return 0;
     var dias = Math.max(0, (hoy0() - fecha(u.d)) / DAY);
     return Math.round(u.km + kmDia() * dias);
   }
@@ -290,7 +399,7 @@
     var h = '<div class="cols"><div>' +
       '<div class="card car"><div class="name">' + esc(c.brand + ' ' + c.model) + '</div>' +
       (c.plate ? '<span class="plate">' + esc(c.plate) + '</span>' : '<button class="link" data-act="coche">+ Añadir matrícula</button>') +
-      '<div class="km">' + (kh ? n0(kh) + ' <small>km' + (u && u.d !== hoyISO() ? ' (aprox.)' : '') + '</small>' : '<small>Pon los km del coche</small>') + '</div>' +
+      '<div class="km">' + (kh ? n0(kh) + ' <small>km' + (kmObd() && kh === Math.round(kmObd()) ? ' (Pro OBD)' : u && u.d !== hoyISO() ? ' (aprox.)' : '') + '</small>' : '<small>Pon los km del coche</small>') + '</div>' +
       '<button class="btn ghost" style="margin-top:8px" data-act="km">🔢 Actualizar km</button></div>' +
       '<div class="quick"><button class="btn pri" data-act="repostar">⛽ Repostar</button><button class="btn" data-act="taller">🔧 Taller</button></div>' +
       '<div class="grid2" style="margin-bottom:12px">' +
@@ -439,13 +548,15 @@
       '<button class="btn full" data-act="probar">🔔 Probar un aviso</button>' +
       '<div class="small muted" style="margin:10px 2px 0">En Xiaomi, para que los avisos lleguen con la app cerrada: mantén pulsado el icono de Pro Garaje → <b>Información de la app</b> → <b>Ahorro de batería</b> → <b>Sin restricciones</b>, y activa <b>Inicio automático</b>.</div></div>' +
       '</div><div>' +
+      '<div class="card"><h3><span>📲 Móvil y coche</span></h3><div id="psHold"></div></div>' +
       '<div class="card"><h3><span>💾 Copia de seguridad</span></h3>' +
-      '<div class="small muted" style="margin:0 2px 10px">Tus datos se guardan solo en este móvil. Haz una copia de vez en cuando (se guarda en la carpeta <b>Descargas</b>) y súbela a Drive o mándatela por WhatsApp.</div>' +
+      '<div class="small muted" style="margin:0 2px 10px">Tus datos se guardan en este aparato (y en el otro si los vinculas). Haz una copia de vez en cuando (se guarda en la carpeta <b>Descargas</b>) y súbela a Drive o mándatela por WhatsApp.</div>' +
       '<div class="grid2"><button class="btn" data-act="exportar">📤 Guardar copia</button><button class="btn" data-act="importar">📥 Restaurar</button></div></div>' +
       '<div class="card"><h3><span>ℹ️ La app</span></h3>' + fila('Versión', 'v' + esc(ver)) +
       '<button class="btn full" style="margin-top:8px" data-act="update">🔄 Buscar actualización</button></div>' +
       '</div></div>';
     $('#v-ajustes').innerHTML = h;
+    if (window.PS) $('#psHold').appendChild(PS.box({ toast: toast, what: 'el coche, los avisos del taller, los repostajes y los gastos. Si usas Pro OBD en el coche, sus kilómetros también llegan aquí.' }));
     $$('#chDias button').forEach(function (b) {
       b.onclick = function () {
         b.classList.toggle('on');
@@ -745,7 +856,7 @@
       if (tab !== 'inicio') { irA('inicio'); return true; }
       return false;
     },
-    onResume: function () { pintar(); enviarAvisos(); },
+    onResume: function () { pintar(); enviarAvisos(); if (window.PS) PS.resume(); },
     onImport: function (txt) {
       try {
         var o = JSON.parse(txt);
